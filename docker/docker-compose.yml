@@ -1,0 +1,29 @@
+---
+version: '2'
+
+services:
+  front:
+    image: front
+    container_name: front
+    hostname: "front"
+    build: "front/"
+    volumes:
+      - $PWD/../:/work
+    networks:
+      - link
+    ports:
+      - "5000:5000"
+
+  back:
+    image: back
+    container_name: back
+    hostname: "back"
+    build: "back/"
+    volumes:
+      - $PWD/../:/work
+    networks:
+      - link
+
+networks:
+  link:
+    driver: bridge
