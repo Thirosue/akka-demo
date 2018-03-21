@@ -71,7 +71,7 @@ INFO  [Remoting]: Remoting now listens on addresses: [akka.tcp://backend@192.168
 ## packet capter
 
 ```
-$ root@8b96ace4a374:~# tcpdump -Anns 1000 dist port 2551
+$ root@8b96ace4a374:~# tcpdump -Anns 1000 dst port 2551
   tcpdump: syntax error in filter expression: syntax error
   root@8b96ace4a374:~# apt-get update
   Ign:1 http://deb.debian.org/debian stretch InRelease
