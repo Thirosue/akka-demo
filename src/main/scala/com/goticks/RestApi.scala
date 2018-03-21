@@ -1,8 +1,11 @@
 package com.goticks
 
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 
 import akka.actor._
+import akka.event.LoggingAdapter
 import akka.pattern.ask
 import akka.util.Timeout
 
@@ -11,16 +14,8 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 
-class RestApi(system: ActorSystem, timeout: Timeout)
-    extends RestRoutes {
-  implicit val requestTimeout = timeout
-  implicit def executionContext = system.dispatcher
-
-  def createBoxOffice = system.actorOf(BoxOffice.props, BoxOffice.name)
-}
-
-trait RestRoutes extends BoxOfficeApi
-    with EventMarshalling {
+trait RestApi extends BoxOfficeApi
+  with EventMarshalling {
   import StatusCodes._
 
   def routes: Route = eventsRoute ~ eventRoute ~ ticketsRoute
@@ -36,7 +31,6 @@ trait RestRoutes extends BoxOfficeApi
         }
       }
     }
-
   def eventRoute =
     pathPrefix("events" / Segment) { event =>
       pathEndOrSingleSlash {
@@ -51,22 +45,20 @@ trait RestRoutes extends BoxOfficeApi
             }
           }
         } ~
-        get {
-          // GET /events/:event
-          onSuccess(getEvent(event)) {
-            _.fold(complete(NotFound))(e => complete(OK, e))
+          get {
+            // GET /events/:event
+            onSuccess(getEvent(event)) {
+              _.fold(complete(NotFound))(e => complete(OK, e))
+            }
+          } ~
+          delete {
+            // DELETE /events/:event
+            onSuccess(cancelEvent(event)) {
+              _.fold(complete(NotFound))(e => complete(OK, e))
+            }
           }
-        } ~
-        delete {
-          // DELETE /events/:event
-          onSuccess(cancelEvent(event)) {
-            _.fold(complete(NotFound))(e => complete(OK, e))
-          }
-        }
       }
     }
-
-
 
   def ticketsRoute =
     pathPrefix("events" / Segment / "tickets") { event =>
@@ -82,13 +74,11 @@ trait RestRoutes extends BoxOfficeApi
         }
       }
     }
-
 }
-
 
 trait BoxOfficeApi {
   import BoxOffice._
-
+  def log: LoggingAdapter
   def createBoxOffice(): ActorRef
 
   implicit def executionContext: ExecutionContext
@@ -96,9 +86,11 @@ trait BoxOfficeApi {
 
   lazy val boxOffice = createBoxOffice()
 
-  def createEvent(event: String, nrOfTickets: Int) =
+  def createEvent(event: String, nrOfTickets: Int) = {
+    log.info(s"Received new event $event, sending to $boxOffice")
     boxOffice.ask(CreateEvent(event, nrOfTickets))
       .mapTo[EventResponse]
+  }
 
   def getEvents() =
     boxOffice.ask(GetEvents).mapTo[Events]
@@ -115,4 +107,3 @@ trait BoxOfficeApi {
     boxOffice.ask(GetTickets(event, tickets))
       .mapTo[TicketSeller.Tickets]
 }
-//
